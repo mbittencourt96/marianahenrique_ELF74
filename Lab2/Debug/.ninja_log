@@ -1,0 +1,11 @@
+# ninja log v5
+12	203	6849926106353870	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Obj/source/startup_ewarm.o	3611106ac6c688d3
+1	921	6849926113509592	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Obj/source/lab2.o	e49ad1eb40f666c7
+1	332	6849927015386737	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Obj/source/startup_ewarm.o	3611106ac6c688d3
+7	99	6849927766279796	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Obj/source/startup_ewarm.o	3611106ac6c688d3
+1	559	6849927770833699	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Obj/source/lab2.o	e49ad1eb40f666c7
+2	81	6849929738068559	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Obj/source/startup_ewarm.o	65e4d5f042dde99d
+87	197	6849929739200036	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Exe/Lab2.out	3fd153703434c4f5
+7	180	6849930147288201	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Obj/source/startup_ewarm.o	36963d197aed1dd5
+2	655	6849930151968477	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Obj/source/lab2.o	b98546593e756ba7
+662	764	6849930153121705	C:/Users/menin/Local Documents/marianahenrique_ELF74/Lab2/Debug/Exe/Lab2.out	75158b3995d6bc2d

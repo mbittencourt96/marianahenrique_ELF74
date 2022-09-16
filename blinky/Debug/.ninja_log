@@ -1,0 +1,17 @@
+# ninja log v5
+1	393	6849899500552223	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Obj/main.o	93f24b11e7e5b21e
+399	524	6849899501882890	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Exe/blinky.out	504f790326f824dc
+6	191	6849903746339815	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Obj/source/main.o	f5a28c0f43473fb6
+15	232	6849903746721740	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Obj/source/startup_ewarm.o	b4141ccd8be96fc9
+237	306	6849903747510219	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Exe/blinky.out	f0328859e4c63de
+1	211	6849907085669886	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Obj/source/main.o	f5a28c0f43473fb6
+220	300	6849907086628074	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Exe/blinky.out	f0328859e4c63de
+4	333	6849919689279750	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Obj/source/startup_ewarm.o	148ff3c0b6c059b1
+15	389	6849919689868197	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Obj/source/main.o	1bb7bf098b83ca8f
+395	470	6849919690774331	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Exe/blinky.out	f0328859e4c63de
+1	91	6849922587810595	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Obj/source/main.o	1bb7bf098b83ca8f
+97	163	6849922588541565	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Exe/blinky.out	f0328859e4c63de
+1	159	6849923350920102	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Obj/source/main.o	1bb7bf098b83ca8f
+165	232	6849923351691373	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Exe/blinky.out	f0328859e4c63de
+3	169	6849924863335479	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Obj/source/main.o	1bb7bf098b83ca8f
+183	307	6849924864740315	C:/Users/menin/Local Documents/marianahenrique_ELF74/blinky/Debug/Exe/blinky.out	f0328859e4c63de
