@@ -6,4 +6,10 @@ blinky/Debug
 blinky/settings
 Lab1/Debug
 Lab1/settings
-*/.dep
+Lab4/Debug
+Lab4/settings
+blinky/.dep
+Lab1/.dep
+Lab2/.dep
+Lab3/.dep
+settings/*.wsdt
