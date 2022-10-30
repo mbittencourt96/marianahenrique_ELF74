@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include "inc/hw_ints.h"
 #include "inc/hw_memmap.h"
@@ -15,111 +16,57 @@
 #include "driverlib/rom_map.h"
 #include "driverlib/uart.h"
 
+
+//global variables
+
 uint32_t SysClock;
+volatile uint32_t interrupts_counter0 = 0;
+volatile uint32_t interrupts_counter1 = 0;
 volatile uint32_t interrupts_counter2 = 0;
 volatile uint32_t interrupts_counter3 = 0;
-volatile uint32_t interrupts_counter4 = 0;
-volatile uint32_t interrupts_counter5 = 0;
+volatile uint32_t n_cycles;
+volatile char channel;
+char mode;
+char first_command;
+char n_cycles_char[10];
+char freq[10];
+char duty_cycle[10];
+char trigger;
+
+volatile int flagStop = 0;
+volatile int maskInput = 0;
+
 char receivedCommand[30];
 char *receivedCommandStr;
 volatile int flagRecebido = 0;
 
 
-void UARTSend(const uint8_t *Buffer, uint32_t Len)
+//handlers
+
+//Switches (SW1 and SW2) Handler
+
+void switchesHandler()
 {
-    while(Len--)
-    {
-        UARTCharPut(UART0_BASE, *Buffer++);
-    }
+  int32_t val;
+  
+  GPIOIntClear(GPIO_PORTJ_BASE,GPIO_INT_PIN_0 | GPIO_INT_PIN_1);
+  
+  val = GPIOPinRead(GPIO_PORTJ_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+  
+  if (val == 1)    //button sw1 pressed
+  {
+    maskInput = 1;
+    
+  }
+  else if (val == 2) //button sw2 pressed
+  {
+    maskInput = 0;
+  }
+  
 }
 
-void startPWM(int channel)
-{
-  if (channel == 1 || channel == 2)
-  {
-    PWMGenEnable(PWM0_BASE, PWM_GEN_1); // Enable PWM
-  }
-  else
-  {
-    PWMGenEnable(PWM0_BASE, PWM_GEN_2);
-  }
-}
 
-void stopPWM(int channel)
-{
-  if (channel == 1 || channel == 2)
-  {
-    PWMGenDisable(PWM0_BASE, PWM_GEN_1); // Disable PWM
-  }
-  else
-  {
-    PWMGenDisable(PWM0_BASE, PWM_GEN_2);
-  }
-}
-
-void executeCommand(char *command)
-{
-  if (command[1] == 'X')
-  {
-    char channel = command[2];
-    char mode = command[4];
-    char freq[10];
-    char duty_cycle[10];
-    char n_cycles[10];
-    char trigger;
-    
-    int i;
-    int m = 0;
-    
-    for (i = 6; command[i] != '*'; i++)
-    {
-      freq[m] = command[i];
-      m++;
-    }
-    
-    m = 0;
-    
-    i = i + 1;
-    
-    int j;
-    
-    for (j = i; command[j] != '*'; j++)
-    {
-      duty_cycle[m] = command[j];
-      m++;
-    }
-    
-    m = 0;
-    
-    j = j + 1;
-    
-    int k;
-    
-    for (k = j; command[k] != '*'; k++)
-    {
-      n_cycles[m] = command[k];
-      m++;
-    }
-    
-    k = k + 1;
-    
-    trigger = command[k];
-   
-  }
-  else if (command[1] == 'O')
-  {
-    
-  }
-  else if (command[1] == 'T')
-  {
-    
-  }
-  else
-  {
-    UARTSend("Comando inválido!", strlen("Comando inválido!"));
-  }
-}
-
+//UART Handler
 
 extern void UART_Rx_Handler()
 {
@@ -152,94 +99,248 @@ extern void UART_Rx_Handler()
   
 }
 
+//PWM Handlers (for burst and single modes)
+
+void PWM_Int_Handler0()
+{
+              
+  PWMGenIntClear(PWM0_BASE,PWM_GEN_0, PWM_INT_GEN_0);
+                 
+  if (interrupts_counter0 < n_cycles)
+  {  
+    interrupts_counter0++;
+  }
+  else
+  {
+    interrupts_counter0 = 0;
+    flagStop = 1;
+  }
+}  
+
+void PWM_Int_Handler1()
+{
+  
+  PWMGenIntClear(PWM0_BASE,PWM_GEN_0, PWM_INT_GEN_0);
+  
+  if (interrupts_counter1 < n_cycles)
+  {
+    interrupts_counter1++;
+  }
+  else
+  {  
+    interrupts_counter1 = 0;
+    flagStop = 1;
+  }
+}  
 
 void PWM_Int_Handler2()
 {
-  if (interrupts_counter2 < 3)
+  
+  PWMGenIntClear(PWM0_BASE,PWM_GEN_2, PWM_INT_GEN_2);
+  
+  if (interrupts_counter2 < n_cycles)
   {
-    GPIOPinWrite(GPIO_PORTN_BASE, GPIO_PIN_0, GPIO_PIN_0);  //Led 1 ON
-    
+   
     interrupts_counter2++;
   }
   else
   {
-    GPIOPinWrite(GPIO_PORTN_BASE, GPIO_PIN_0, 0x0);  //Led 1 OFF
-    
     interrupts_counter2 = 0;
+    flagStop = 1;
   }
 }  
 
 void PWM_Int_Handler3()
 {
-  if (interrupts_counter3 < 3)
+  PWMGenIntClear(PWM0_BASE,PWM_GEN_2, PWM_INT_GEN_2);
+  
+   if (interrupts_counter3 < n_cycles)
   {
-    GPIOPinWrite(GPIO_PORTN_BASE, GPIO_PIN_1, GPIO_PIN_1);  //Led 2 ON
-    
     interrupts_counter3++;
   }
   else
   {
-    GPIOPinWrite(GPIO_PORTN_BASE, GPIO_PIN_1, 0x0);  //Led 2 OFF
-    
     interrupts_counter3 = 0;
+    flagStop = 1;
   }
 }  
 
-void PWM_Int_Handler4()
-{
-  if (interrupts_counter4 < 3)
-  {
-    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_0, GPIO_PIN_0);  //Led 3 ON
-    
-    interrupts_counter4++;
-  }
-  else
-  {
-    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_0, 0x0);  //Led 3 OFF
-    
-    interrupts_counter4 = 0;
-  }
-}  
 
-void PWM_Int_Handler5()
+void UARTSend(const uint8_t *Buffer, uint32_t Len)
 {
-   if (interrupts_counter5 < 3)
+    while(Len--)
+    {
+        UARTCharPut(UART0_BASE, *Buffer++);
+    }
+}
+
+void startPWM()
+{
+   if (channel == '1')
   {
-    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_4, GPIO_PIN_4);  //Led 4 ON
-    
-    interrupts_counter5++;
+    PWMGenEnable(PWM0_BASE, PWM_GEN_2); // Enable PWM
+  }
+  else if (channel == '2')
+  {
+    PWMGenEnable(PWM0_BASE, PWM_GEN_0); // Enable PWM
   }
   else
   {
-    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_4, 0x0);  //Led 4 OFF
-    
-    interrupts_counter5 = 0;
+    PWMGenEnable(PWM0_BASE, PWM_GEN_1);
   }
-}  
+}
+
+void startPWMByTrigger()
+{
+  if (channel == '1')
+  {
+    PWMGenEnable(PWM0_BASE, PWM_GEN_2); // Enable PWM
+  }
+  else if (channel == '2')
+  {
+    PWMGenEnable(PWM0_BASE, PWM_GEN_0); // Enable PWM
+  }
+  else
+  {
+    PWMGenEnable(PWM0_BASE, PWM_GEN_1);
+  }
+}
+
+void stopPWM()
+{
+  if (channel == '1')
+  {
+    PWMGenDisable(PWM0_BASE, PWM_GEN_2); // Disable PWM
+    PWMOutputState(PWM0_BASE, PWM_OUT_4_BIT, false); // Disable PWM output channel 4
+  }
+  else if (channel == '2')
+  {
+    PWMGenDisable(PWM0_BASE, PWM_GEN_0); // Disable PWM
+    PWMOutputState(PWM0_BASE, PWM_OUT_1_BIT, false); // Disable PWM output channel 1
+  }
+  else if (channel == '3')
+  {
+    PWMGenDisable(PWM0_BASE, PWM_GEN_1);
+    PWMOutputState(PWM0_BASE, PWM_OUT_2_BIT, false); // Disable PWM output channel 2
+  }
+  else
+  {
+    PWMGenDisable(PWM0_BASE, PWM_GEN_1);
+    PWMOutputState(PWM0_BASE, PWM_OUT_3_BIT, false); // Disable PWM output channel 3
+  }
+}
+
+void interpretCommand(char *command)
+{
+ 
+  
+  if (maskInput == 0)
+  {
+    
+  if (command[1] == 'X')    //pwm single, continuous, or burst
+  {
+    first_command = 'X';
+    
+    channel = command[2];
+    mode = command[4];
+    char n_cycles_internal[10];
+    
+    int i;
+    int m = 0;
+    
+    for (i = 6; command[i] != '*'; i++)
+    {
+      freq[m] = command[i];
+      m++;
+    }
+    
+    m = 0;
+    
+    i = i + 1;
+    
+    int j;
+    
+    for (j = i; command[j] != '*'; j++)
+    {
+      duty_cycle[m] = command[j];
+      m++;
+    }
+    
+    m = 0;
+    
+    j = j + 1;
+    
+    int k;
+    
+    for (k = j; command[k] != '*'; k++)
+    {
+      n_cycles_char[m] = command[k];
+      m++;
+    }
+    
+    k = k + 1;
+    
+    if (command[k] == 'Y')
+    {
+      trigger = true;
+    }
+    else
+    {
+      trigger = false;
+    }
+  }
+  else if (command[1] == 'O')   //immediate stop
+  {
+    first_command = 'O';
+    channel = command[2];
+    stopPWM();
+  }
+  else if (command[1] == 'T')  //immediate start
+  {
+    first_command = 'T';
+    channel = command[2];
+    stopPWM();
+  }
+  else
+  {
+    first_command = 'Y';
+    UARTSend("Comando inválido!", strlen("Comando inválido!"));
+  }
+ }
+ else
+ {
+   first_command = 'Y';
+   UARTSend("Entrada mascarada! O comando não será executado!", strlen("Entrada mascarada! O comando não será executado!"));
+ }
+}
+
+//Setup functions
 
 void setupLEDs()
 {
-  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPION);  //Enable GPIO for embedded LEDs
   SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF); // Enable Port F
   
-  while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPION) && !SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF))
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOG); // Enable Port G
+  
+  while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF) && !SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOG))
     {
       
     }
-   GPIOPinTypeGPIOOutput(GPIO_PORTN_BASE, GPIO_PIN_0);
-   GPIOPinTypeGPIOOutput(GPIO_PORTN_BASE, GPIO_PIN_1);
-   GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_0);
-   GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_4);    //Configure all LEDS as outputs (PN1,PN0,PF0,PF4)
-   
-   
-   GPIOPinWrite(GPIO_PORTN_BASE, GPIO_PIN_0, 0x0); 
-   GPIOPinWrite(GPIO_PORTN_BASE, GPIO_PIN_1, 0x0);  
-   GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_0, 0x0);  
-   GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_4, 0x0);  //Leds OFF
-   
-   
-   
  
+   GPIOPinConfigure(GPIO_PG0_M0PWM4);
+   GPIOPinConfigure(GPIO_PF1_M0PWM1);
+   GPIOPinConfigure(GPIO_PF2_M0PWM2);
+   GPIOPinConfigure(GPIO_PF3_M0PWM3);
+   
+   GPIOPinTypePWM(GPIO_PORTF_BASE, GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);//Configure PWM outputs (PF1,PF2,PF3) 
+   
+   GPIOPinTypePWM(GPIO_PORTG_BASE, GPIO_PIN_0);
+   
+   GPIOPinWrite(GPIO_PORTG_BASE, GPIO_PIN_0, 0x0); 
+   GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0x0);
+   GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0x0);  
+   GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, 0x0);  //Leds OFF
+   
 }
 void setupUART()
 {
@@ -261,35 +362,50 @@ void setupUART()
     UARTIntEnable(UART0_BASE, UART_INT_RX | UART_INT_RT);
 }
 
-void setupButton()
+void setupSwitches()
 {
    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOJ);  //Enable GPIO for switches
   
    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOJ))
     {
       
-    }       
+    }  
    
-   GPIOPinTypeGPIOInput(GPIO_PORTJ_BASE, GPIO_PIN_0);
-   
+   GPIOIntRegister(GPIO_PORTJ_BASE, switchesHandler);
+   GPIOPinTypeGPIOInput(GPIO_PORTJ_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+   IntMasterEnable();
    GPIOIntTypeSet(GPIO_PORTJ_BASE, GPIO_PIN_0, GPIO_FALLING_EDGE);
+   GPIOIntTypeSet(GPIO_PORTJ_BASE, GPIO_PIN_1, GPIO_FALLING_EDGE);
    GPIOPadConfigSet(GPIO_PORTJ_BASE, GPIO_PIN_0, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPU);
-   
-    
+   GPIOPadConfigSet(GPIO_PORTJ_BASE, GPIO_PIN_1, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPU);
+   IntEnable(INT_GPIOJ);
+   GPIOIntEnable(GPIO_PORTJ_BASE, GPIO_INT_PIN_0 |GPIO_INT_PIN_1);
+  
 }
 
-/*void enableButtonTrigger()
+void setupTriggerInput()
 {
-  IntMasterEnable();
-  IntEnable(INT_GPIOJ);
-  GPIOIntRegister(GPIO_PORTJ_BASE, startPWM);
-  GPIOIntDisable(GPIO_PORTJ_BASE, GPIO_INT_PIN_1);
-  GPIOIntEnable(GPIO_PORTJ_BASE, GPIO_INT_PIN_0);
-}*/
+   SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);  //Enable GPIO for switches
+  
+   while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOC))
+    {
+      
+    }  
+   
+   GPIOIntRegister(GPIO_PORTC_BASE, startPWMByTrigger);
+   GPIOPinTypeGPIOInput(GPIO_PORTC_BASE, GPIO_PIN_5);
+   IntMasterEnable();
+   GPIOIntTypeSet(GPIO_PORTC_BASE, GPIO_PIN_5, GPIO_FALLING_EDGE);
+   GPIOPadConfigSet(GPIO_PORTC_BASE, GPIO_PIN_5, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPU);
+   IntEnable(INT_GPIOC);
+   GPIOIntEnable(GPIO_PORTC_BASE, GPIO_INT_PIN_5);
+  
+}
 
-void setupPWM(int channel, int mode, float CPU_FREQ, float PWM_FREQ, int cycles, bool trigger)
+void setupPWM(char channel, char mode, int CPU_FREQ, int PWM_FREQ, int duty_cycle_local, int cycles, bool trigger)
 {
     float PWM_WORD;
+    
     PWM_WORD = (1/PWM_FREQ)*CPU_FREQ;
     
     SysClock = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ |
@@ -301,137 +417,146 @@ void setupPWM(int channel, int mode, float CPU_FREQ, float PWM_FREQ, int cycles,
     
     switch(channel)
     {
-      case 1:  //Config PWM2
-            SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF); // Enable Port F
+      case '1':  //Config output PWM4
             
-            while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF))
-                    {
-                    }                                                 
-                    
+            PWMGenConfigure(PWM0_BASE, PWM_GEN_2, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DB_NO_SYNC);
+            PWMGenPeriodSet(PWM0_BASE, PWM_GEN_2, PWM_WORD); // Set PWM period
+            PWMPulseWidthSet(PWM0_BASE, PWM_OUT_4, PWMGenPeriodGet(PWM0_BASE,PWM_GEN_2) * (duty_cycle_local) / 100); // Set Duty cycle 
+            PWMOutputState(PWM0_BASE, PWM_OUT_4_BIT, true); // Enable PWM output channel 0
             
-            GPIOPinTypePWM(GPIO_PORTF_BASE, GPIO_PIN_2); // Enable alternate function of PF2
-            GPIOPinConfigure(GPIO_PF2_M0PWM2);
-            PWMGenConfigure(PWM0_BASE, PWM_GEN_1, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DB_NO_SYNC);
-            PWMGenPeriodSet(PWM0_BASE, PWM_GEN_1, PWM_WORD); // Set PWM frequency
-            PWMPulseWidthSet(PWM0_BASE, PWM_OUT_2, PWMGenPeriodGet(PWM0_BASE, PWM_GEN_1)/1000); // Set Duty cycle 
-            PWMOutputState(PWM0_BASE, PWM_OUT_2_BIT, true); // Enable PWM output channel 2
-            PWMIntEnable(PWM0_BASE, PWM_INT_GEN_1);
-            IntEnable(INT_PWM0_1);
-            PWMGenIntTrigEnable(PWM0_BASE, PWM_INT_GEN_1, PWM_INT_CNT_AU);
-            IntMasterEnable();
-            PWMGenIntRegister(PWM0_BASE, PWM_INT_GEN_1,PWM_Int_Handler2);
+            if (mode == 'S' || mode == 'U')   //single or burst - define number of cycles (interrupt)
+            {
+              n_cycles = cycles;
+              PWMIntEnable(PWM0_BASE, PWM_INT_GEN_2);
+              IntEnable(INT_PWM0_2);
+              PWMGenIntTrigEnable(PWM0_BASE, PWM_INT_GEN_2, PWM_INT_CNT_AU);
+              IntMasterEnable();
+              PWMGenIntRegister(PWM0_BASE, PWM_INT_GEN_2,PWM_Int_Handler0);                 
+            }
             
-            
-            
-            //PWMGenEnable(PWM0_BASE, PWM_GEN_2); // Enable PWM module
+            if  (trigger == true)
+            {
+                setupTriggerInput();
+            }
+           
         break;
         
-      case 2:   //Config PWM3
-        SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF); // Enable Port F
-            
-        while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF))
-                {
-                }                                                 
-                
+      case '2':   //Config PWM1 output
+
+        PWMGenConfigure(PWM0_BASE, PWM_GEN_0, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DB_NO_SYNC);
+        PWMGenPeriodSet(PWM0_BASE, PWM_GEN_0, PWM_WORD); // Set PWM frequency
+        PWMPulseWidthSet(PWM0_BASE, PWM_OUT_1, PWMGenPeriodGet(PWM0_BASE,PWM_GEN_0) * (duty_cycle_local) / 100); // Set Duty cycle 
+        PWMOutputState(PWM0_BASE, PWM_OUT_1_BIT, true); // Enable PWM output channel 1
         
-        GPIOPinTypePWM(GPIO_PORTF_BASE, GPIO_PIN_3); // Enable alternate function of PF3
-        GPIOPinConfigure(GPIO_PF3_M0PWM3);
-        PWMGenConfigure(PWM0_BASE, PWM_GEN_1, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DB_NO_SYNC);
-        PWMGenPeriodSet(PWM0_BASE, PWM_GEN_1, PWM_WORD); // Set PWM frequency
-        PWMPulseWidthSet(PWM0_BASE, PWM_OUT_3, PWMGenPeriodGet(PWM0_BASE, PWM_GEN_1)/1000); // Set Duty cycle 
-        PWMOutputState(PWM0_BASE, PWM_OUT_3_BIT, true); // Enable PWM output channel 3
+        if (mode == 'S' || mode == 'U')   //single or burst - define number of cycles (interrupt)
+        {
+          n_cycles = cycles;
+          PWMIntEnable(PWM0_BASE, PWM_INT_GEN_0);
+          IntEnable(INT_PWM0_0);
+          PWMGenIntTrigEnable(PWM0_BASE, PWM_INT_GEN_0, PWM_INT_CNT_AU);
+          IntMasterEnable();
+          PWMGenIntRegister(PWM0_BASE, PWM_INT_GEN_0,PWM_Int_Handler1);
+        }
         
-        PWMIntEnable(PWM0_BASE, PWM_INT_GEN_1);
-        IntEnable(INT_PWM0_1);
-        PWMGenIntTrigEnable(PWM0_BASE, PWM_INT_GEN_1, PWM_INT_CNT_AU);
-        IntMasterEnable();
-        PWMGenIntRegister(PWM0_BASE, PWM_INT_GEN_1,PWM_Int_Handler3);
         break;
   
-      case 3: //Config PWM4
-              SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOG); // Enable Port G
-            
-        while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOG))
-                {
-                }                                                 
-                
+      case '3': //Config PWM2 output
+  
+        PWMGenConfigure(PWM0_BASE, PWM_GEN_1, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DB_NO_SYNC);
+        PWMGenPeriodSet(PWM0_BASE, PWM_GEN_1, PWM_WORD); // Set PWM frequency
+        PWMPulseWidthSet(PWM0_BASE, PWM_OUT_2, PWMGenPeriodGet(PWM0_BASE,PWM_GEN_1) * (duty_cycle_local) / 100); // Set Duty cycle 
+        PWMOutputState(PWM0_BASE, PWM_OUT_2_BIT, true); // Enable PWM output channel 2
         
-        GPIOPinTypePWM(GPIO_PORTG_BASE, GPIO_PIN_0); // Enable alternate function of PG0
-        GPIOPinConfigure(GPIO_PG0_M0PWM4);
-        PWMGenConfigure(PWM0_BASE, PWM_GEN_2, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DB_NO_SYNC);
-        PWMGenPeriodSet(PWM0_BASE, PWM_GEN_2, PWM_WORD); // Set PWM frequency
-        PWMPulseWidthSet(PWM0_BASE, PWM_OUT_4, PWMGenPeriodGet(PWM0_BASE, PWM_GEN_2)/1000); // Set Duty cycle 
-        PWMOutputState(PWM0_BASE, PWM_OUT_4_BIT, true); // Enable PWM output channel 4
-        
-        PWMIntEnable(PWM0_BASE, PWM_INT_GEN_2);
-        IntEnable(INT_PWM0_2);
-        PWMGenIntTrigEnable(PWM0_BASE, PWM_INT_GEN_2, PWM_INT_CNT_AU);
-        IntMasterEnable();
-        PWMGenIntRegister(PWM0_BASE, PWM_INT_GEN_2,PWM_Int_Handler4);
-
+        if (mode == 'S' || mode == 'U')   //single or burst - define number of cycles (interrupt)
+        {
+          n_cycles = cycles;
+          PWMIntEnable(PWM0_BASE, PWM_INT_GEN_1);
+          IntEnable(INT_PWM0_1);
+          PWMGenIntTrigEnable(PWM0_BASE, PWM_INT_GEN_1, PWM_INT_CNT_AU);
+          IntMasterEnable();
+          PWMGenIntRegister(PWM0_BASE, PWM_INT_GEN_1,PWM_Int_Handler2);
+         }
         break;
         
-      case 4: //Config PWM5
+      case '4': //Config PWM3 output
         
-        SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOG); // Enable Port G
-            
-        while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOG))
-                {
-                }                                                 
-                
+        PWMGenConfigure(PWM0_BASE, PWM_GEN_1, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DB_NO_SYNC);
+        PWMGenPeriodSet(PWM0_BASE, PWM_GEN_1, PWM_WORD); // Set PWM frequency
+        PWMPulseWidthSet(PWM0_BASE, PWM_OUT_3, PWMGenPeriodGet(PWM0_BASE,PWM_GEN_1) * (duty_cycle_local) / 100); // Set Duty cycle 
+        PWMOutputState(PWM0_BASE, PWM_OUT_3_BIT, true); // Enable PWM output channel 4
         
-        GPIOPinTypePWM(GPIO_PORTG_BASE, GPIO_PIN_1); // Enable alternate function of PG1
-        GPIOPinConfigure(GPIO_PG1_M0PWM5);
-        PWMGenConfigure(PWM0_BASE, PWM_GEN_2, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DB_NO_SYNC);
-        PWMGenPeriodSet(PWM0_BASE, PWM_GEN_2, PWM_WORD); // Set PWM frequency
-        PWMPulseWidthSet(PWM0_BASE, PWM_OUT_5, PWMGenPeriodGet(PWM0_BASE, PWM_GEN_2)/1000); // Set Duty cycle 
-        PWMOutputState(PWM0_BASE, PWM_OUT_5_BIT, true); // Enable PWM output channel 4
         
-        PWMIntEnable(PWM0_BASE, PWM_INT_GEN_2);
-        IntEnable(INT_PWM0_2);
-        PWMGenIntTrigEnable(PWM0_BASE, PWM_INT_GEN_2, PWM_INT_CNT_AU);
-        IntMasterEnable();
-        PWMGenIntRegister(PWM0_BASE, PWM_INT_GEN_2,PWM_Int_Handler5);
+        if (mode == 'S' || mode == 'U')   //single or burst - define number of cycles (interrupt)
+        {
+          PWMIntEnable(PWM0_BASE, PWM_INT_GEN_1);
+          IntEnable(INT_PWM0_1);
+          PWMGenIntTrigEnable(PWM0_BASE, PWM_INT_GEN_1, PWM_INT_CNT_AU);
+          IntMasterEnable();
+          PWMGenIntRegister(PWM0_BASE, PWM_INT_GEN_1,PWM_Int_Handler3);
+        }
         
         break;
-        
-        
-    /* switch(mode)   TODO: Implement other modes
-     {
-     case 1: // Single mode
-       break;
-     case 2: //Burst mode
-       break;
-     case 3: //Continuous mode
-       break;
-     }
-      */
-        
     }
-     /*if (trigger == true)
+    
+    if (trigger == true)
      {
-       enableButtonTrigger();
-     }*/
+       setupTriggerInput();
+     }
         
 }
 
 void main()
 {
   setupUART(); 
+  setupLEDs();
+  setupSwitches();
+  
+  int frequency;
+  int num_cycles;
+  int dutyCycle;
   
   while(1)
   {
     if (flagRecebido)
     {
-      receivedCommandStr = receivedCommand;
-      
-      executeCommand(receivedCommandStr);
       
       int j;
       
+      for (j = 0; n_cycles_char[j] != '\0'; j++)
+        {
+          n_cycles_char[j] = ' ';
+        }
+      
+      for (j = 0; freq[j] != '\0'; j++)
+        {
+          freq[j] = ' ';
+        }
+      
+      for (j = 0; duty_cycle[j] != '\0'; j++)
+        {
+          duty_cycle[j] = ' ';
+        }
+   
+      receivedCommandStr = receivedCommand;
+      
+      interpretCommand(receivedCommandStr);
+
       for (j = 0; receivedCommand[j] != '\0'; j++)
       {
         receivedCommand[j] = ' ';
+      }
+     
+      if (first_command == 'X')
+      {
+         frequency = atoi(freq);
+      
+         num_cycles = atoi(n_cycles_char);
+          
+         dutyCycle = atoi(duty_cycle);
+          
+         setupPWM(channel,mode,120000000,frequency,dutyCycle,num_cycles,trigger);
+       
+         startPWM();
       }
       
       flagRecebido = 0;
