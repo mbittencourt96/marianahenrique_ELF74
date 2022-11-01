@@ -44,6 +44,7 @@ static void NmiSR(void);
 static void FaultISR(void);
 static void IntDefaultHandler(void);
 void UART_Rx_Handler(void);
+void PWM_Int_Handler0(void);
 
 //*****************************************************************************
 //
@@ -110,7 +111,7 @@ __root const uVectorEntry __vector_table[] @ ".intvec" =
     IntDefaultHandler,                      // PWM Fault
     IntDefaultHandler,                      // PWM Generator 0
     IntDefaultHandler,                      // PWM Generator 1
-    IntDefaultHandler,                      // PWM Generator 2
+    PWM_Int_Handler0,                      // PWM Generator 2
     IntDefaultHandler,                      // Quadrature Encoder 0
     IntDefaultHandler,                      // ADC Sequence 0
     IntDefaultHandler,                      // ADC Sequence 1
