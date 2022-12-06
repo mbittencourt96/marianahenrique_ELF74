@@ -8,8 +8,12 @@ Lab1/Debug
 Lab1/settings
 Lab4/Debug
 Lab4/settings
-blinky/.dep
-Lab1/.dep
-Lab2/.dep
-Lab3/.dep
+blinky/*.dep
+Lab1/*.dep
+Lab2/*.dep
+Lab3/*.dep
 settings/*.wsdt
+Projeto_Final/CMSIS-5.6.0
+Projeto_Final/Debug
+Projeto_Final/*.dep
+
