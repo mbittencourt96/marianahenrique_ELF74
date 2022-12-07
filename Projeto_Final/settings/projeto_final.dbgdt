@@ -232,7 +232,7 @@
                     <item>mid_OutputQueue</item>
                     <item>NULL</item>
                     <item>caract</item>
-                    <item></item>
+                    <item />
                 </expressions>
                 <col-names>
                     <item>Expression</item>
@@ -267,7 +267,7 @@
                     <item>threadCD_id</item>
                     <item>status</item>
                     <item>receivedMsg.mensagem</item>
-                    <item></item>
+                    <item />
                 </expressions>
                 <col-names>
                     <item>Expression</item>
