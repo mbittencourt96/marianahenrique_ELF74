@@ -28,28 +28,34 @@ typedef struct {
 } messageObj;       //definition of message object
 
 osMessageQueueId_t mid_CommandQueue;                // command message queue id
+osMessageQueueId_t mid_InternalCommandQueue;                // internal buttons command message queue id
+osMessageQueueId_t mid_ExternalCommandQueue;                // external buttons command message queue id
 osMessageQueueId_t mid_StatusQueue;                // status message queue id
+osMessageQueueId_t mid_StatusRequestQueue;                // status request message queue id
 osMessageQueueId_t mid_RightElevatorQueue;         // right elevator message queue id
 osMessageQueueId_t mid_CenterElevatorQueue;        // center elevator message queue id
 osMessageQueueId_t mid_LeftElevatorQueue;          // left elevator message queue id
 osMessageQueueId_t mid_OutputQueue;                // output message queue id
+osMessageQueueId_t mid_FlagQueue;                // flag message queue id
 
 osThreadId_t threadED_id;
 osThreadId_t threadEE_id;
 osThreadId_t threadEC_id;
-osThreadId_t threadSL_id; 
 osThreadId_t threadCD_id;    //Thread ids
 
 int initMessageQueues()
 {
-  mid_CommandQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
+  mid_InternalCommandQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
+  mid_ExternalCommandQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
   mid_StatusQueue = osMessageQueueNew(1,sizeof(messageObj),NULL);
- //mid_RightElevatorQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
- // mid_CenterElevatorQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
-  //mid_LeftElevatorQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
+  mid_StatusRequestQueue = osMessageQueueNew(1,sizeof(messageObj),NULL);
+  mid_RightElevatorQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
+  mid_CenterElevatorQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
+  mid_LeftElevatorQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
   mid_OutputQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
   
-  if (mid_CommandQueue == NULL || mid_StatusQueue == NULL || mid_OutputQueue == NULL) //|| mid_RightElevatorQueue == NULL || mid_CenterElevatorQueue == NULL || mid_LeftElevatorQueue == NULL )
+  if (mid_InternalCommandQueue == NULL || mid_ExternalCommandQueue == NULL || mid_StatusQueue == NULL || mid_StatusRequestQueue ||
+      mid_OutputQueue == NULL || mid_RightElevatorQueue == NULL || mid_CenterElevatorQueue == NULL || mid_LeftElevatorQueue == NULL )
   {
     return -1;
   }
@@ -153,6 +159,7 @@ void threadElevadorDireito()
 
 void threadElevadorEsquerdo()
 {
+  
 }
 
 void threadElevadorCentral()
@@ -160,24 +167,68 @@ void threadElevadorCentral()
   
 }
 
-void threadStatusListener()
-{
-  while(1)
-  {
-  }
-}
-
 void threadCommandDecoder(void *arg)
 {  
   while(1)
   {
-    messageObj receivedMsg;
+    messageObj receivedStatus;
+    messageObj receivedExternalCommand;
+    messageObj receivedInternalCommand;
+    messageObj getStatusFromED;
+    messageObj getStatusFromEC;
+    messageObj getStatusFromEE;
     
     osStatus_t status;
-    status = osMessageQueueGet(mid_CommandQueue,&receivedMsg,0,0);
-    if (status == osOK)
+    
+    status = osMessageQueueGet(mid_ExternalCommandQueue,&receivedExternalCommand,0,osWaitForever);
+    if (status == osOK)   //received external buttons command
     {
-      printf("%c",receivedMsg.mensagem[0]);
+      
+      char *request = "cx\r\n";
+      int i = 0;
+      
+      while(request[i] != '\n')
+      {
+        getStatusFromEC.mensagem[i++] = request[i];
+      } 
+
+      osMessageQueuePut(mid_StatusRequestQueue,&getStatusFromEC,0,0);   //put command into status request queue(request status from center elevator)
+      
+      status = osMessageQueueGet(mid_StatusQueue,&receivedStatus,0,osWaitForever);  //wait for status
+      
+      if (status == osOK) 
+      {
+        i = 0;
+        *request = "ex\r\n";
+        
+      while(request[i] != '\n')
+        {
+          getStatusFromEE.mensagem[i++] = request[i];
+        } 
+
+      osMessageQueuePut(mid_StatusRequestQueue,&getStatusFromEE,0,0);   //put command into status request queue(request status from center elevator)
+      
+      status = osMessageQueueGet(mid_StatusQueue,&receivedStatus,0,osWaitForever);  //wait for status
+        
+      if (status == osOK) 
+      {
+        i = 0;
+        *request = "dx\r\n";
+        
+        while(request[i] != '\n')
+          {
+            getStatusFromED.mensagem[i++] = request[i];
+          } 
+
+        osMessageQueuePut(mid_StatusRequestQueue,&getStatusFromED,0,0);   //put command into status request queue(request status from center elevator)
+        
+        status = osMessageQueueGet(mid_StatusQueue,&receivedStatus,0,osWaitForever);  //wait for status
+      }
+        
+        
+      }
+      
+      
     }
   }
   
@@ -196,13 +247,13 @@ void main(void)   //main entry function
   else
   {    
     setupUART();    //Setup the UART;
-    //threadED_id = osThreadNew(threadElevadorDireito, NULL, NULL);
-    //threadEC_id = osThreadNew(threadElevadorCentral, NULL, NULL);
-    //threadEE_id = osThreadNew(threadElevadorEsquerdo, NULL, NULL);
-   // threadSL_id = osThreadNew(threadStatusListener, NULL, NULL);
+    threadED_id = osThreadNew(threadElevadorDireito, NULL, NULL);
+    threadEC_id = osThreadNew(threadElevadorCentral, NULL, NULL);
+    threadEE_id = osThreadNew(threadElevadorEsquerdo, NULL, NULL);
     threadCD_id = osThreadNew(threadCommandDecoder, NULL, NULL);    //create and get thread ids
     
-    if (threadCD_id != NULL)
+    if (threadCD_id != NULL && threadED_id != NULL && threadEC_id != NULL 
+        && threadEE_id != NULL)
     {
       if(osKernelGetState() == osKernelReady)
       {
@@ -211,6 +262,10 @@ void main(void)   //main entry function
 
       while(1);  
     } 
+    else
+    {
+      printf("Uma ou mais threads nao foram criadas, tente novamente!");
+    }
   }
 
 }
