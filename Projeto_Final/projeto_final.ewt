@@ -2849,6 +2849,12 @@
         <name>$PROJ_DIR$\..\..\TivaWare_C_Series-2.2.0.295\driverlib\ewarm\Exe\driverlib.a</name>
     </file>
     <file>
+        <name>$PROJ_DIR$\src\lcd.c</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\src\lcd_example.c</name>
+    </file>
+    <file>
         <name>$PROJ_DIR$\src\main.c</name>
     </file>
     <file>

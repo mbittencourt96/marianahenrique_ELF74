@@ -337,10 +337,10 @@
                 <option>
                     <name>CCIncludePath2</name>
                     <state>C:\Users\menin\Local Documents\TivaWare_C_Series-2.2.0.295</state>
-                    <state>C:\Users\menin\Local Documents\marianahenrique_ELF74\Projeto Final\drivers</state>
-                    <state>C:\Users\menin\Local Documents\marianahenrique_ELF74\Projeto Final\CMSIS-5.6.0\CMSIS\Core\Include</state>
-                    <state>C:\Users\menin\Local Documents\marianahenrique_ELF74\Projeto Final\CMSIS-5.6.0\CMSIS\RTOS2\Include</state>
-                    <state>C:\Users\menin\Local Documents\marianahenrique_ELF74\Projeto Final\CMSIS-5.6.0\CMSIS\RTOS2\RTX\Include</state>
+                    <state>C:\Users\menin\Local Documents\marianahenrique_ELF74\Projeto_Final\drivers</state>
+                    <state>C:\Users\menin\Local Documents\marianahenrique_ELF74\Projeto_Final\CMSIS-5.6.0\CMSIS\Core\Include</state>
+                    <state>C:\Users\menin\Local Documents\marianahenrique_ELF74\Projeto_Final\CMSIS-5.6.0\CMSIS\RTOS2\Include</state>
+                    <state>C:\Users\menin\Local Documents\marianahenrique_ELF74\Projeto_Final\CMSIS-5.6.0\CMSIS\RTOS2\RTX\Include</state>
                 </option>
                 <option>
                     <name>CCStdIncCheck</name>
@@ -2126,6 +2126,12 @@
     </configuration>
     <file>
         <name>$PROJ_DIR$\..\..\TivaWare_C_Series-2.2.0.295\driverlib\ewarm\Exe\driverlib.a</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\src\lcd.c</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\src\lcd_example.c</name>
     </file>
     <file>
         <name>$PROJ_DIR$\src\main.c</name>
