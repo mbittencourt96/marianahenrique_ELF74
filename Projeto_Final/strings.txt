@@ -1,0 +1,7 @@
+current activity string = e005*c010*d103
+
+subindo = 0
+descendo = 1
+parado = 2
+
+output commmand string = c06s ou d08d ou e10s

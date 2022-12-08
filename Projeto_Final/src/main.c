@@ -37,13 +37,13 @@ osMessageQueueId_t mid_RightElevatorStatusQueue;         // right elevator messa
 osMessageQueueId_t mid_CenterElevatorStatusQueue;        // center elevator message queue id
 osMessageQueueId_t mid_LeftElevatorStatusQueue;          // left elevator message queue id
 osMessageQueueId_t mid_OutputQueue;                // output message queue id
-osMessageQueueId_t mid_CurrentActivityQueue;                // output message queue id
+osMessageQueueId_t mid_CurrentActivityQueue;                // current activity message queue id
+osMessageQueueId_t mid_DirectionQueue;                // current activity message queue id
 
 osThreadId_t threadED_id;
 osThreadId_t threadEE_id;
 osThreadId_t threadEC_id;
 osThreadId_t threadCD_id;
-osThreadId_t threadOutput_id; 
 osThreadId_t threadCurrentActivity_id;   //Thread ids
 
 void init_LCD(void);
@@ -67,10 +67,12 @@ int initMessageQueues()
   mid_LeftElevatorStatusQueue = osMessageQueueNew(1,sizeof(messageObj),NULL);
   mid_OutputQueue = osMessageQueueNew(MAX_NUM_OF_MESSAGES,sizeof(messageObj),NULL);
   mid_CurrentActivityQueue = osMessageQueueNew(3,sizeof(messageObj),NULL);
+  mid_DirectionQueue = osMessageQueueNew(3,sizeof(messageObj),NULL);
   
   if (mid_InternalCommandQueue == NULL || mid_ExternalCommandQueue == NULL || mid_StatusQueue == NULL ||
       mid_OutputQueue == NULL || mid_RightElevatorCommandQueue == NULL || mid_CenterElevatorCommandQueue == NULL || mid_LeftElevatorCommandQueue == NULL
-        || mid_RightElevatorStatusQueue == NULL || mid_CenterElevatorStatusQueue == NULL || mid_LeftElevatorStatusQueue || mid_CurrentActivityQueue == NULL)
+        || mid_RightElevatorStatusQueue == NULL || mid_CenterElevatorStatusQueue == NULL || mid_LeftElevatorStatusQueue || mid_CurrentActivityQueue == NULL
+          || mid_DirectionQueue == NULL)
   {
     return -1;
   }
@@ -266,15 +268,41 @@ void threadElevadorEsquerdo()
   {
     osStatus_t status;
     messageObj receivedCommand;
+    messageObj receivedStatus;
+    messageObj receivedCurrentActivity;
     messageObj commandtoSend;
       
-    status = osMessageQueueGet(mid_LeftElevatorQueue,&receivedCommand,0,osWaitForever);
+    status = osMessageQueueGet(mid_LeftElevatorCommandQueue,&receivedCommand,0,osWaitForever);
     
-    if (status == osOK)
+    if (status == osOK)   //received command
     {
-        commandtoSend.mensagem[0] = 'e';
-        commandtoSend.mensagem[1] = receivedCommand.mensagem[0];
-        osMessageQueuePut(mid_OutputQueue,&commandtoSend,0,0);
+        status = osMessageQueueGet(mid_LeftElevatorStatusQueue,&receivedStatus,0,osWaitForever);
+        if (status == osOK)   //received status
+        {
+          status = osMessageQueueGet(mid_CurrentActivityQueue,&receivedCurrentActivity,0,osWaitForever);
+          if (status == osOK)   //received current activity
+          {
+            char *current_activity = receivedCurrentActivity.mensagem;
+            
+            char target_floor[2];
+            int target_floor_num;
+            
+            target_floor[0] = current_activity[2];
+            target_floor[1] = current_activity[3];
+            
+            target_floor_num = atoi(target_floor);
+            
+            int direction;
+            direction = atoi(current_activity[1]);
+            
+            
+            
+          }      
+          commandtoSend.mensagem[0] = 'e';
+          commandtoSend.mensagem[1] = receivedCommand.mensagem[0];
+          osMessageQueuePut(mid_OutputQueue,&commandtoSend,0,0);
+        }
+    
     }
   }
   
@@ -321,15 +349,29 @@ void threadCommandDecoder(void *arg)
     int EEflag;
     int EDflag;
     
+    osStatus_t statusInternal;
+    osStatus_t statusExternal;
     osStatus_t status;
     
-    status = osMessageQueueGet(mid_ExternalCommandQueue,&receivedExternalCommand,0,osWaitForever);
+    while (statusExternal != osOK || statusInternal != osOK)
+    {
+      statusExternal = osMessageQueueGet(mid_ExternalCommandQueue,&receivedExternalCommand,0,0);
+      statusInternal = osMessageQueueGet(mid_InternalCommandQueue,&receivedInternalCommand,0,0);
+    }
     
-    if (status == osOK)   //received external buttons command
+    
+    if (statusExternal == osOK)   //received external buttons command
     {
       char *extCommand = receivedExternalCommand.mensagem;   //get the command
       
-      printf("Received command: %s", receivedExternalCommand.mensagem);   //todo: LCD
+      printf("Received external command: %s", receivedExternalCommand.mensagem);   //todo: LCD
+      
+      char requestedFloorString[2];
+      requestedFloorString[0] = extCommand[2];
+      requestedFloorString[1] = extCommand[3];
+      
+      requestedFloor = atoi(requestedFloorString);
+      
       
       for (int j = 0; j < 3; j ++)
       {
@@ -353,32 +395,26 @@ void threadCommandDecoder(void *arg)
           }
       }
      }
- 
-      char requestedFloorString[2];
-      requestedFloorString[0] = extCommand[2];
-      requestedFloorString[1] = extCommand[3];
-      
-      requestedFloor = atoi(requestedFloorString);
-      
+  
       for (int j = 0; j < 3; j ++)     //get flags of all elevators
       {
-        status = osMessageQueueGet(mid_FlagQueue,&receivedFlag,0,osWaitForever);
+        status = osMessageQueueGet(mid_DirectionQueue,&receivedFlag,0,osWaitForever);
       
         if (status == osOK)   //received status of one of the elevators
         {
           printf("Received flag %s", receivedFlag.mensagem);   //todo: LCD
           
-          if (receivedStatus.mensagem[0] == 'c')    //center elevator
+          if (receivedFlag.mensagem[0] == 'c')    //center elevator
           {
-            ECflag = atoi(receivedStatus.mensagem[1]);
+            ECflag = atoi(receivedFlag.mensagem[1]);
           }
-          else if (receivedStatus.mensagem[0] == 'd') //right elevator
+          else if (receivedFlag.mensagem[0] == 'd') //right elevator
           {
-            EDflag = atoi(receivedStatus.mensagem[1]);
+            EDflag = atoi(receivedFlag.mensagem[1]);
           }
           else     //left elevator
           {
-            EEflag = atoi(receivedStatus.mensagem[1]);
+            EEflag = atoi(receivedFlag.mensagem[1]);
           }
       }
      }
@@ -417,47 +453,122 @@ void threadCommandDecoder(void *arg)
        }
      }
      
-     sendCommandtoElevator(chosenElevator,requestedFloor); //TODO: implement this function
+     sendCommandtoElevator(chosenElevator,requestedFloor);
      
      
       }
-      
-      }
-        
-        
-}
-
-void threadOutput()
-{
-  while(1)
-  {
-    osStatus_t status;
-    messageObj receivedCommand;
-    char* commandtoSend;
-      
-    status = osMessageQueueGet(mid_OutputQueue,&receivedCommand,0,osWaitForever);
-    
-    if (status == osOK)
+     
+    else if (statusInternal == osOK)
     {
-        while(caract != '\n')
+      char *intCommand = receivedInternalCommand.mensagem;   //get the command
+      
+      printf("Received internal command: %s", receivedInternalCommand.mensagem);   //todo: LCD
+      
+      char requestedFloor;
+      char currentElevator;
+      requestedFloor = intCommand[2];
+      currentElevator = intCommand[0];
+      int requestedFloornum;
+      
+      if (requestedFloor == 'a')
       {
-        // Algoritmo de conversao
-        caract = (unsigned char) UARTCharGetNonBlocking(UART0_BASE);
-        
-        msg.mensagem[i++] = caract;
-      } 
-    
-        msg.mensagem[i] = '\0';
-        osMessageQueuePut(mid_OutputQueue,&commandtoSend,0,0);
+        requestedFloornum = 0;
+      }
+      else if (requestedFloor == 'b')
+      {
+        requestedFloornum = 1;
+      }
+      else if (requestedFloor == 'c')
+      {
+        requestedFloornum = 2;
+      }
+      else if (requestedFloor == 'd')
+      {
+        requestedFloornum = 3;
+      }
+      else if (requestedFloor == 'e')
+      {
+        requestedFloornum = 4;
+      }
+      else if (requestedFloor == 'f')
+      {
+        requestedFloornum = 5;
+      }
+      else if (requestedFloor == 'g')
+      {
+        requestedFloornum = 6;
+      }
+      else if (requestedFloor == 'h')
+      {
+        requestedFloornum = 7;
+      }
+      else if (requestedFloor == 'i')
+      {
+        requestedFloornum = 8;
+      }
+      else if (requestedFloor == 'j')
+      {
+        requestedFloornum = 9;
+      }
+      else if (requestedFloor == 'k')
+      {
+        requestedFloornum = 10;
+      }
+      else if (requestedFloor == 'l')
+      {
+        requestedFloornum = 11;
+      }
+      else if (requestedFloor == 'm')
+      {
+        requestedFloornum = 12;
+      }
+      else if (requestedFloor == 'n')
+      {
+        requestedFloornum = 13;
+      }
+      else if (requestedFloor == 'o')
+      {
+        requestedFloornum = 14;
+      }
+      else
+      {
+        requestedFloornum = 15;
+      }
+      
+      int chosenElevator;
+      
+      if (currentElevator == 'e')
+      {
+        chosenElevator = 0;
+      }  
+      else if (currentElevator == 'c')
+      {
+        chosenElevator = 1;
+      }
+      else
+      {
+        chosenElevator = 2;
+      }
+      
+      sendCommandtoElevator(chosenElevator,requestedFloornum);
     }
-  }
- 
+      }   
 }
 
 void threadCurrentActivity()
 {
   while(1)
   {
+    osStatus_t status;
+    messageObj outputCommand;
+    status = osMessageQueueGet(mid_OutputQueue,&outputCommand,0,osWaitForever);
+    
+    if (status == osOK)
+    {
+      osMessageQueuePut(mid_CurrentActivityQueue,&outputCommand,0,0);
+      UARTSend(outputCommand.mensagem,strlen(outputCommand.mensagem));
+    }
+    
   }
  
 }
@@ -481,23 +592,28 @@ void main(void)   //main entry function
     threadED_id = osThreadNew(threadElevadorDireito, NULL, NULL);
     threadEC_id = osThreadNew(threadElevadorCentral, NULL, NULL);
     threadEE_id = osThreadNew(threadElevadorEsquerdo, NULL, NULL);
-    threadCD_id = osThreadNew(threadCommandDecoder, NULL, NULL);  
-    threadOutput_id = osThreadNew(threadOutput, NULL, NULL);       
+    threadCD_id = osThreadNew(threadCommandDecoder, NULL, NULL); 
     threadCurrentActivity_id = osThreadNew (threadCurrentActivity, NULL, NULL);                   //create and get thread ids
     
     if (threadCD_id != NULL && threadED_id != NULL && threadEC_id != NULL 
-        && threadEE_id != NULL && threadOutput_id != NULL)
+        && threadEE_id != NULL)
     {
       if(osKernelGetState() == osKernelReady)
       {
+          clear_LCD();
+          seleciona_primeira_linha_LCD();
+          escreve_texto_LCD("Iniciando Kernel!");
           osKernelStart();   
+
       }
 
       while(1);  
     } 
     else
     {
-      printf("Uma ou mais threads nao foram criadas, tente novamente!");
+      clear_LCD();
+      seleciona_primeira_linha_LCD();
+      escreve_texto_LCD("Tente novamente!");
     }
   }
 
