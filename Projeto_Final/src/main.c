@@ -95,11 +95,10 @@ void UART_Rx_Handler()
     {
       initialMessage = mensagem_char;
     }
-    else
+    else if (strchr(mensagem_char, 'E') != NULL)
     {
       osMessageQueuePut(mid_InputCommandQueue,&msg,0,0);   //put command into status queue
     }
-    
    
   }
 }
@@ -109,7 +108,7 @@ void UARTSend(const unsigned char *Buffer, uint32_t Len)
     while(Len--)
     {
         UARTCharPut(UART0_BASE, *Buffer++);
-    }
+    }  
 }
 
 void setupUART()
@@ -145,9 +144,9 @@ void threadOutputController(void *arg)
     n_of_messages = osMessageQueueGetCount(mid_OutputQueue);
     
     if (n_of_messages == 0)
-    {
+    { 
      status = osMessageQueueGet(mid_WaitingQueue, &waitingMsg, 0, 0);
-     
+    
      if (status == osOK)
      {
        UARTSend(waitingMsg.mensagem,strlen(waitingMsg.mensagem));
@@ -155,6 +154,8 @@ void threadOutputController(void *arg)
     }
     else
     {
+     
+     UARTSend("Sending output command\n",strlen("Sending output command\n"));
      status = osMessageQueueGet(mid_OutputQueue, &outputMsg, 0, 0);
      
      if (status == osOK)
@@ -183,17 +184,20 @@ void threadCommandDecoder(void *arg)
     osStatus_t statusCommand;
     osStatus_t infoElevator;
     
-    statusCommand = osMessageQueueGet(mid_InputCommandQueue,&receivedInputCommand,0,osWaitForever);   //Get command from queue
+    statusCommand = osMessageQueueGet(mid_InputCommandQueue,&receivedInputCommand,0,0);   //Get command from queue
     
     if (statusCommand == osOK)
-    {
-      
+    {  
       char *InputCommand = receivedInputCommand.mensagem;   //get the command
      
-      infoElevator = osMessageQueueGet(mid_StatusQueue,&receivedInfo,0,osWaitForever);   //Get information
+      UARTSend("Received command\n",strlen("Received command\n"));
+
+      infoElevator = osMessageQueueGet(mid_InfoQueue,&receivedInfo,0,0);   //Get information
    
       if (infoElevator == osOK)   //received external buttons command
       {
+        
+        UARTSend("Received info\n",strlen("Received info\n"));
         
         goFlag = receivedInfo.mensagem[0];   //Get go flag. 0 = don't send the next command; 1 = allowed to send the next command
         
@@ -217,7 +221,7 @@ void threadCommandDecoder(void *arg)
         
         if (goFlag == 1)
         {
-          osMessageQueuePut(mid_OutputQueue, &outputCommand, 0, osWaitForever);
+          osMessageQueuePut(mid_OutputQueue, &outputCommand, 0, 0);
           
           osDelay(3000);   //wait 3 secs
           
@@ -380,10 +384,12 @@ void threadStatusController(void *argument)
     
     char infoString [3];
     
-    status = osMessageQueueGet(mid_StatusQueue,&statusMessage,0,osWaitForever);
+    status = osMessageQueueGet(mid_StatusQueue,&statusMessage,0,0);
     
     if (status == osOK)
     {
+      
+      UARTSend("Received status\n",strlen("Received status\n"));
       char currentFloorStr[2];
       
       currentFloorStr[0] = statusMessage.mensagem[1];
@@ -391,10 +397,12 @@ void threadStatusController(void *argument)
       
       currentFloor = atoi(currentFloorStr);
     
-      status = osMessageQueueGet(mid_LastCommandQueue,&lastCommandMsg,0,osWaitForever);
+      status = osMessageQueueGet(mid_LastCommandQueue,&lastCommandMsg,0,0);
       
       if (status == osOK)
       {
+        
+        UARTSend("Received last command\n",strlen("Received last command\n"));
         char targetFloorStr[2];
         
         targetFloorStr[0] = lastCommandMsg.mensagem[0];
@@ -417,7 +425,7 @@ void threadStatusController(void *argument)
             outputCommandMsg.mensagem[i] = outputCommandStr[i];
           }
           
-          osMessageQueuePut(mid_OutputQueue,&outputCommandMsg,0,osWaitForever);   //send command
+          osMessageQueuePut(mid_OutputQueue,&outputCommandMsg,0,0);   //send command
           
           for (i = 0 ; i < 2; i++)
           {
@@ -445,6 +453,38 @@ void threadStatusController(void *argument)
       }
       
     }
+    else
+    {
+      char currentFloorStr[2];
+      
+      currentFloorStr[0] = '0';
+      currentFloorStr[1] = '0';
+      
+      currentFloor = atoi(currentFloorStr);
+      
+      char targetFloorStr[2];
+        
+      targetFloorStr[0] = '0';
+      targetFloorStr[1] = '0';
+      
+      targetFloor = atoi(targetFloorStr);
+      
+      infoString[0] = '1';
+      infoString[1] = currentFloorStr[0];
+      infoString[2] = currentFloorStr[1];
+      
+      int i;
+      
+      for (i = 0 ; i < 2; i++)
+      {
+        infoToSend.mensagem[i] = infoString[i];
+      }
+      
+      if(osMessageQueueGetCount(mid_InfoQueue) == 0)
+      {
+         osMessageQueuePut(mid_InfoQueue,&infoToSend,0,0);   //send info
+      }   
+    }
     
   }
 }
@@ -467,11 +507,7 @@ void main(void)   //main entry function
     {
       //wait for initial message
     }
-    
-    UARTSend("cr\r",strlen("cr\r"));
-    
-    UARTSend("cf\r",strlen("cf\r"));
-    
+   
     threadStatus_id = osThreadNew(threadStatusController, NULL, NULL);
     threadCommand_id = osThreadNew(threadCommandDecoder, NULL, NULL);
     threadOutput_id = osThreadNew(threadOutputController, NULL, NULL);                                  //create and get thread ids
