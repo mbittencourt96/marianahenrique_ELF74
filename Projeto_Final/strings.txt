@@ -1,7 +1,3 @@
-current activity string = e005*c010*d103
+info string = 1(go flag)05(current floor)
 
-subindo = 0
-descendo = 1
-parado = 2
-
-output commmand string = c06s ou d08d ou e10s
+Last command string (indicates the target floor) = 05 (example)

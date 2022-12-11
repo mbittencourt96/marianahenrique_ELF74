@@ -2131,9 +2131,6 @@
         <name>$PROJ_DIR$\src\lcd.c</name>
     </file>
     <file>
-        <name>$PROJ_DIR$\src\lcd_example.c</name>
-    </file>
-    <file>
         <name>$PROJ_DIR$\src\main.c</name>
     </file>
     <file>
